@@ -1,47 +1,59 @@
-from typing import List
-# import set
+import time
+import tracemalloc
+import numpy as np
 
-class Solution:
-    def solveNQueens(self, n):
-        col = set()
-        posDiag = set() # (r + c)
-        negDiag = set() # (r - c)
+def is_safe(board, row, col):
+    for i in range(col):
+        if board[i] == row or abs(board[i] - row) == abs(i - col):
+            return False
+    return True
 
-        res = []
-        board = [["."] * n for i in range(n)]
+def solve_queens_backtracking(board, col, memory_snapshots):
+    if col >= len(board):
+        return True 
+    
+    for i in range(len(board)):
+        if is_safe(board, i, col):
+            board[col] = i 
+            snapshot = tracemalloc.take_snapshot()
+            memory_snapshots.append(snapshot)
+            solved = solve_queens_backtracking(board, col + 1, memory_snapshots)
+            if solved:
+                return True
+            board[col] = -1 
+    
+    return False 
 
-        def backtrack(r):
-            if r == n:
-                copy = ["".join(row) for row in board]
-                res.append(copy)
-                return
-            
-            for c in range(n):
-                if c in col or (r + c) in posDiag or (r - c) in negDiag:
-                    continue
-                    
-                col.add(c)
-                posDiag.add(r + c)
-                negDiag.add(r - c)
-                board[r][c] = "Q"
+def print_board(board):
+    for row in board:
+        line = ['Q' if col == row else '.' for col in range(len(board))]
+        print(' '.join(line))
 
-                backtrack(r + 1)
+def solve_8_queens_backtracking():
+    n = 8 
+    board = [-1] * n
+    memory_snapshots = []
 
-                col.remove(c)
-                posDiag.remove(r + c)
-                negDiag.remove(r - c)
-                board[r][c] = "."
-        
-        backtrack(0)
-        return res, board
+    tracemalloc.start()
+    start_time = time.time()
+    
+    solved = solve_queens_backtracking(board, 0, memory_snapshots)
+    
+    end_time = time.time()
+    peak_memory_kb = tracemalloc.get_traced_memory()[1] / 1024
+    tracemalloc.stop()
 
-if __name__ == "__main__":
-    solver = Solution()
-    output, board = solver.solveNQueens(8)
-    print("Number of solutions", len(output))
-    print("-----------------------------")
-    for out in output[0]:
-        print(out)
-    print("-----------------------------")
-    for out in output[1]:
-        print(out)
+    time_taken_ms = (end_time - start_time) * 1000
+    average_memory_kb = sum(snapshot.statistics('filename')[0].size for snapshot in memory_snapshots) / len(memory_snapshots) / 1024
+    
+    if solved:
+        print("Solution found:")
+        print_board(board)
+    else:
+        print("No solution exists.")
+    
+    print(f"Time taken: {time_taken_ms:.2f} ms")
+    print(f"Peak memory used: {peak_memory_kb / 1024:.3f} MB")
+    print(f"Average memory used (approx.): {average_memory_kb / 1024:.2f} MB")
+
+solve_8_queens_backtracking()

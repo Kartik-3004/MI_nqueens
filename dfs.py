@@ -1,50 +1,64 @@
+import numpy as np
+import time
+import tracemalloc
+
 def is_safe(board, row, col):
-    """Check if it's safe to place a queen at board[row][col]."""
     for i in range(col):
-        # Check row and diagonal conflicts
         if board[i] == row or abs(board[i] - row) == abs(i - col):
             return False
     return True
 
-def solve_dfs(board, col, steps):
-    """Solve the 8 Queens problem using DFS."""
+def solve_dfs(board, path, col, memory_snapshots):
     if col == len(board):
-        return True, steps  # All queens are successfully placed
-
-    for i in range(len(board)):
-        if is_safe(board, i, col):
-            board[col] = i  # Place queen
-            success, steps = solve_dfs(board, col + 1, steps + 1)  # Move to the next column
+        return True, board, path
+    
+    for row in range(len(board)):
+        if is_safe(path, row, col):
+            board[row][col] = 1
+            path.append(row)
+            
+            snapshot = tracemalloc.take_snapshot()
+            memory_snapshots.append(snapshot)
+            
+            success, solved_board, solved_path = solve_dfs(board, path, col + 1, memory_snapshots)
             if success:
-                return True, steps
-            # If not successful, backtrack
-            board[col] = -1
+                return True, solved_board, solved_path
 
-    return False, steps
+            # Backtrack
+            board[row][col] = 0
+            path.pop()
 
-def solve_8_queens():
-    board = [-1] * 8  # -1 indicates no queen is placed in the column
-    solution_found, steps = solve_dfs(board, 0, 0)
-    return board, steps if solution_found else 0
+    return False, None, None
 
-solution, steps = solve_8_queens()
+def solve_8_queens_dfs():
+    tracemalloc.start()
+    start_time = time.time()
+    memory_snapshots = []
 
-if steps > 0:
-    print(f"Solution found in {steps} steps:")
-    print(solution)
+    board = np.zeros((8, 8), dtype=int)
+    solved, solved_board, path = solve_dfs(board, [], 0, memory_snapshots)
+
+    end_time = time.time()
+    peak_memory_kb = tracemalloc.get_traced_memory()[1] / 1024
+    average_memory_kb = sum(snapshot.statistics('filename')[0].size for snapshot in memory_snapshots) / len(memory_snapshots) / 1024
+    time_taken_ms = (end_time - start_time) * 1000
+    
+    tracemalloc.stop()
+
+    return solved_board, path, time_taken_ms, peak_memory_kb, average_memory_kb
+
+def print_board(board):
+    for row in board:
+        print(' '.join('Q' if cell == 1 else '.' for cell in row))
+
+board, path, time_taken_ms, peak_memory_kb, average_memory_kb = solve_8_queens_dfs()
+
+if board is not None:
+    print("Solution found:")
+    print_board(board)
 else:
     print("No solution found.")
 
-def print_solution(solution):
-    """Print the chessboard with the queens placed."""
-    for row in solution:
-        line = ""
-        for col in range(8):
-            if col == row:
-                line += "Q "
-            else:
-                line += ". "
-        print(line)
-
-if solution:
-    print_solution(solution)
+print(f"Time taken: {time_taken_ms:.2f} ms")
+print(f"Peak memory used: {peak_memory_kb / 1024:.3f} MB")
+print(f"Average memory used (approx.): {average_memory_kb / 1024:.2f} MB")

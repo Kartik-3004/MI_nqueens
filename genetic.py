@@ -1,115 +1,93 @@
+import numpy as np
 import random
+import time
+import tracemalloc
 
-def random_chromosome(size): #making random chromosomes 
-    return [ random.randint(1, nq) for _ in range(nq) ]
+def generate_individual():
+    return np.random.permutation(8)
 
-def fitness(chromosome):
-    horizontal_collisions = sum([chromosome.count(queen)-1 for queen in chromosome])/2
-    diagonal_collisions = 0
+def compute_fitness(individual):
+    collisions = 0
+    for i in range(len(individual)):
+        for j in range(i + 1, len(individual)):
+            if abs(i - j) == abs(individual[i] - individual[j]):
+                collisions += 1
+    return 28 - collisions  
 
-    n = len(chromosome)
-    left_diagonal = [0] * 2*n
-    right_diagonal = [0] * 2*n
-    for i in range(n):
-        left_diagonal[i + chromosome[i] - 1] += 1
-        right_diagonal[len(chromosome) - i + chromosome[i] - 2] += 1
+def selection(population, fitnesses):
+    idx = np.random.choice(np.arange(len(population)), size=2, replace=False, p=fitnesses/fitnesses.sum())
+    return population[idx[0]], population[idx[1]]
 
-    diagonal_collisions = 0
-    for i in range(2*n-1):
-        counter = 0
-        if left_diagonal[i] > 1:
-            counter += left_diagonal[i]-1
-        if right_diagonal[i] > 1:
-            counter += right_diagonal[i]-1
-        diagonal_collisions += counter / (n-abs(i-n+1))
+def crossover(parent1, parent2):
+    point = random.randint(1, len(parent1) - 2)
+    child1 = np.concatenate([parent1[:point], parent2[point:]])
+    child2 = np.concatenate([parent2[:point], parent1[point:]])
+    return child1, child2
+
+def mutate(individual):
+    idx = range(len(individual))
+    i1, i2 = random.sample(idx, 2)
+    individual[i1], individual[i2] = individual[i2], individual[i1]
+
+def solve_8_queens_genetic(population_size=100, generations=1000):
+    tracemalloc.start()
+    start_time = time.time()
+    memory_snapshots = []
+
+    population = [generate_individual() for _ in range(population_size)]
+    total_generations = 0
     
-    return int(maxFitness - (horizontal_collisions + diagonal_collisions)) #28-(2+3)=23
-
-def probability(chromosome, fitness):
-    return fitness(chromosome) / maxFitness
-
-def random_pick(population, probabilities):
-    populationWithProbabilty = zip(population, probabilities)
-    total = sum(w for c, w in populationWithProbabilty)
-    r = random.uniform(0, total)
-    upto = 0
-    for c, w in zip(population, probabilities):
-        if upto + w >= r:
-            return c
-        upto += w
-    assert False, "Shouldn't get here"
+    for generation in range(generations):
+        total_generations += 1
+        fitnesses = np.array([compute_fitness(ind) for ind in population])
         
-def reproduce(x, y): #doing cross_over between two chromosomes
-    n = len(x)
-    c = random.randint(0, n - 1)
-    return x[0:c] + y[c:n]
-
-def mutate(x):  #randomly changing the value of a random index of a chromosome
-    n = len(x)
-    c = random.randint(0, n - 1)
-    m = random.randint(1, n)
-    x[c] = m
-    return x
-
-def genetic_queen(population, fitness):
-    mutation_probability = 0.03
-    new_population = []
-    probabilities = [probability(n, fitness) for n in population]
-    for i in range(len(population)):
-        x = random_pick(population, probabilities) #best chromosome 1
-        y = random_pick(population, probabilities) #best chromosome 2
-        child = reproduce(x, y) #creating two new chromosomes from the best 2 chromosomes
-        if random.random() < mutation_probability:
-            child = mutate(child)
-        print_chromosome(child)
-        new_population.append(child)
-        if fitness(child) == maxFitness: break
-    return new_population
-
-def print_chromosome(chrom):
-    print("Chromosome = {},  Fitness = {}"
-        .format(str(chrom), fitness(chrom)))
-
-if __name__ == "__main__":
-    nq = int(input("Enter Number of Queens: ")) #say N = 8
-    maxFitness = (nq*(nq-1))/2  # 8*7/2 = 28
-    population = [random_chromosome(nq) for _ in range(100)]
-    print(population)
-  
-    
-    generation = 1
-
-    while not maxFitness in [fitness(chrom) for chrom in population]:
-        print("=== Generation {} ===".format(generation))
-        population = genetic_queen(population, fitness)
-        print("")
-        print("Maximum Fitness = {}".format(max([fitness(n) for n in population])))
-        generation += 1
-    chrom_out = []
-    print("Solved in Generation {}!".format(generation-1))
-    for chrom in population:
-        if fitness(chrom) == maxFitness:
-            print("")
-            print("One of the solutions: ")
-            chrom_out = chrom
-            print_chromosome(chrom)
-            
-    board = []
-
-    for x in range(nq):
-        board.append(["x"] * nq)
+        snapshot = tracemalloc.take_snapshot()
+        memory_snapshots.append(snapshot)
         
-    for i in range(nq):
-        board[nq-chrom_out[i]][i]="Q"
-            
-
-    def print_board(board):
-        for row in board:
-            print (" ".join(row))
-            
-    print()
-    print_board(board)
-            
-           
-            
+        if np.max(fitnesses) == 28:
+            solution = population[np.argmax(fitnesses)]
+            break 
+        
+        new_population = []
+        for _ in range(population_size // 2):
+            parent1, parent2 = selection(population, fitnesses)
+            child1, child2 = crossover(parent1, parent2)
+            if random.random() < 0.1:
+                mutate(child1)
+                mutate(child2)
+            new_population.extend([child1, child2])
+        
+        population = new_population
     
+    end_time = time.time()
+    peak_memory_kb = tracemalloc.get_traced_memory()[1] / 1024
+    average_memory_kb = sum(snapshot.statistics('filename')[0].size for snapshot in memory_snapshots) / len(memory_snapshots) / 1024
+    time_taken_ms = (end_time - start_time) * 1000
+    tracemalloc.stop()
+    
+    if 'solution' not in locals(): 
+        print("No solution found after the maximum allowed generations.")
+        solution = None
+
+    return solution, total_generations, time_taken_ms, peak_memory_kb, average_memory_kb
+
+def print_board(solution):
+    board = np.zeros((8, 8), dtype=str)
+    board[:, :] = '.'
+    for col, row in enumerate(solution):
+        board[row, col] = 'Q'
+    for row in board:
+        print(' '.join(row))
+
+solution, total_generations, time_taken_ms, peak_memory_kb, average_memory_kb = solve_8_queens_genetic()
+
+if solution is not None:
+    print(f"Solution found:")
+    print_board(solution)
+    print(f"Number of generations until solution: {total_generations}")
+else:
+    print(f"No solution found within {total_generations} generations.")
+
+print(f"Time taken: {time_taken_ms:.2f} ms")
+print(f"Peak memory used: {peak_memory_kb / 1024:.3f} MB")
+print(f"Average memory used (approx.): {average_memory_kb / 1024:.2f} MB")

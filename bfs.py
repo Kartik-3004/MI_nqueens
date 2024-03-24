@@ -1,42 +1,66 @@
+import numpy as np
+import time
+import tracemalloc
 from collections import deque
 
 def is_safe(board, row, col):
-    """Check if it's safe to place a queen at board[row][col]."""
     for i in range(col):
         if board[i] == row or abs(board[i] - row) == abs(i - col):
             return False
     return True
 
 def solve_8_queens_bfs():
-    """Solve the 8 Queens problem using BFS and return one solution and the number of steps."""
+    tracemalloc.start()
+    start_time = time.time()
+    memory_snapshots = []
+
     queue = deque()
-    queue.append([])  # Start with an empty solution
-    steps = 0  # Track the number of steps
+    queue.append((np.zeros((8, 8), dtype=int), []))
     while queue:
-        solution = queue.popleft()
-        steps += 1  # Increment steps for each solution taken from the queue
-        col = len(solution)
+        board, path = queue.popleft()
+        col = len(path)
+
+        snapshot = tracemalloc.take_snapshot()
+        memory_snapshots.append(snapshot)
+
         if col == 8:
-            return solution, steps  # Return the solution and the number of steps when found
+            end_time = time.time()
+            peak_memory_kb = tracemalloc.get_traced_memory()[1] / 1024
+            tracemalloc.stop()
+            
+            average_memory_kb = sum(snapshot.statistics('filename')[0].size for snapshot in memory_snapshots) / len(memory_snapshots) / 1024
+            time_taken_ms = (end_time - start_time) * 1000
+            
+            return board, path, time_taken_ms, peak_memory_kb, average_memory_kb
+
         for row in range(8):
-            if is_safe(solution, row, col):
-                queue.append(solution + [row])  # Append new row position
-    return None, steps  # If no solution is found
+            if is_safe(path, row, col):
+                new_board = np.copy(board)
+                new_board[row][col] = 1
+                new_path = path + [row] 
+                queue.append((new_board, new_path))
 
-def print_solution(solution):
-    """Print the chessboard with the queens placed."""
-    for row in range(8):
-        line = ""
-        for col in range(8):
-            if col == solution[row]:
-                line += "Q "
-            else:
-                line += ". "
-        print(line)
+    end_time = time.time()
+    peak_memory_kb = tracemalloc.get_traced_memory()[1] / 1024
+    tracemalloc.stop()
 
-solution, steps = solve_8_queens_bfs()
-if solution:
-    print(f"A solution to the 8 Queens problem was found in {steps} steps:")
-    print_solution(solution)
+    average_memory_kb = sum(snapshot.statistics('filename')[0].size for snapshot in memory_snapshots) / len(memory_snapshots) / 1024
+    time_taken_ms = (end_time - start_time) * 1000
+
+    return None, None, time_taken_ms, peak_memory_kb, average_memory_kb
+
+def print_board(board):
+    for row in board:
+        print(' '.join('Q' if cell == 1 else '.' for cell in row))
+
+board, path, time_taken_ms, peak_memory_kb, average_memory_kb = solve_8_queens_bfs()
+
+if board is not None:
+    print("Solution found:")
+    print_board(board)
 else:
-    print(f"No solution found. Number of steps taken: {steps}.")
+    print("No solution found.")
+
+print(f"Time taken: {time_taken_ms:.2f} ms")
+print(f"Peak memory used: {peak_memory_kb / 1024:.3f} MB")
+print(f"Average memory used (approx.): {average_memory_kb / 1024:.2f} MB")
