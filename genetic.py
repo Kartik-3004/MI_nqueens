@@ -6,13 +6,15 @@ import tracemalloc
 def generate_individual():
     return np.random.permutation(8)
 
-def compute_fitness(individual):
+def compute_fitness(queens):
+    n = len(queens)
     collisions = 0
-    for i in range(len(individual)):
-        for j in range(i + 1, len(individual)):
-            if abs(i - j) == abs(individual[i] - individual[j]):
+    for i in range(n):
+        for j in range(i + 1, n):
+            if queens[i] == queens[j] or np.abs(queens[i] - queens[j]) == np.abs(i - j):
                 collisions += 1
-    return 28 - collisions  
+    return 28 - collisions
+
 
 def selection(population, fitnesses):
     idx = np.random.choice(np.arange(len(population)), size=2, replace=False, p=fitnesses/fitnesses.sum())
