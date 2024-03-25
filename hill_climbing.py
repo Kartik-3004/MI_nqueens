@@ -64,6 +64,7 @@ def solve_8_queens_hill_climbing():
     initial_board = [random.randint(0, 7) for _ in range(8)]
     solution_board, time_taken_ms, peak_memory_kb, average_memory_kb = hill_climbing(initial_board)
     print_board(solution_board) 
+    print(f"Number of attacks: {calculate_attacks(solution_board)}")
     print(f"Time taken: {time_taken_ms:.2f} ms")
     print(f"Peak memory used: {peak_memory_kb / 1024:.3f} MB")
     print(f"Average memory used (approx.): {average_memory_kb / 1024:.3f} MB")
