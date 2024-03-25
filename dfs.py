@@ -8,50 +8,44 @@ def is_safe(board, row, col):
             return False
     return True
 
-def solve_dfs(board, path, col, memory_snapshots):
-    if col == len(board):
-        return True, board, path
-    
-    for row in range(len(board)):
-        if is_safe(path, row, col):
-            board[row][col] = 1
-            path.append(row)
-            
-            snapshot = tracemalloc.take_snapshot()
-            memory_snapshots.append(snapshot)
-            
-            success, solved_board, solved_path = solve_dfs(board, path, col + 1, memory_snapshots)
-            if success:
-                return True, solved_board, solved_path
-
-            # Backtrack
-            board[row][col] = 0
-            path.pop()
-
-    return False, None, None
-
-def solve_8_queens_dfs():
+def solve_8_queens_stack():
     tracemalloc.start()
     start_time = time.time()
     memory_snapshots = []
 
-    board = np.zeros((8, 8), dtype=int)
-    solved, solved_board, path = solve_dfs(board, [], 0, memory_snapshots)
-
-    end_time = time.time()
-    peak_memory_kb = tracemalloc.get_traced_memory()[1] / 1024
-    average_memory_kb = sum(snapshot.statistics('filename')[0].size for snapshot in memory_snapshots) / len(memory_snapshots) / 1024
-    time_taken_ms = (end_time - start_time) * 1000
+    initial_board = np.zeros((8, 8), dtype=int)
+    stack = [(initial_board, [], 0)]
     
-    tracemalloc.stop()
+    while stack:
+        board, path, col = stack.pop()
+        
+        if col == len(board):
+            end_time = time.time()
+            peak_memory_kb = tracemalloc.get_traced_memory()[1] / 1024
+            average_memory_kb = sum(snapshot.statistics('filename')[0].size for snapshot in memory_snapshots) / len(memory_snapshots) / 1024
+            time_taken_ms = (end_time - start_time) * 1000
+            tracemalloc.stop()
+            return board, path, time_taken_ms, peak_memory_kb, average_memory_kb
+        
+        for row in range(len(board)):
+            if is_safe(path, row, col):
+                new_board = np.copy(board)
+                new_board[row][col] = 1
+                new_path = list(path) + [row]
+                
+                snapshot = tracemalloc.take_snapshot()
+                memory_snapshots.append(snapshot)
+                
+                stack.append((new_board, new_path, col + 1))
 
-    return solved_board, path, time_taken_ms, peak_memory_kb, average_memory_kb
+    tracemalloc.stop()
+    return None, None, None, None, None
 
 def print_board(board):
     for row in board:
         print(' '.join('Q' if cell == 1 else '.' for cell in row))
 
-board, path, time_taken_ms, peak_memory_kb, average_memory_kb = solve_8_queens_dfs()
+board, path, time_taken_ms, peak_memory_kb, average_memory_kb = solve_8_queens_stack()
 
 if board is not None:
     print("Solution found:")
