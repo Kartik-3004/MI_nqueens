@@ -9,6 +9,15 @@ def is_safe(board, row, col):
             return False
     return True
 
+def non_attacking_pairs(board):
+    non_attacking = 0
+    for i in range(len(board)):
+        for j in range(i + 1, len(board)):
+            if board[i] != -1 and board[j] != -1:
+                if board[i] != board[j] and abs(board[i] - board[j]) != j - i:
+                    non_attacking += 1
+    return non_attacking
+
 def solve_8_queens_a_star():
     tracemalloc.start()
     start_time = time.time()
@@ -16,7 +25,7 @@ def solve_8_queens_a_star():
 
     initial_board = np.zeros(8, dtype=int) - 1
     open_set = PriorityQueue()
-    open_set.put((0, 0, initial_board.tobytes(), []))  # Initial cost, number of queens, board state, path
+    open_set.put((0, 0, initial_board.tobytes(), []))
 
     while not open_set.empty():
         _, cost, board_bytes, path = open_set.get()
@@ -35,18 +44,18 @@ def solve_8_queens_a_star():
             time_taken_ms = (end_time - start_time) * 1000
 
             final_board = np.zeros((8, 8), dtype=int)
-            for row in path:
-                final_board[row][path.index(row)] = 1
+            for i, row in enumerate(path):
+                final_board[row][i] = 1
             
             return final_board, path, time_taken_ms, peak_memory_kb, average_memory_kb
 
         for row in range(8):
-            if is_safe(path, row, col):
+            if is_safe(board, row, col):
                 new_board = np.copy(board)
                 new_board[col] = row
                 new_path = path + [row]
-                heuristic = 8 - (col + 1)
-                open_set.put((col + 1 + heuristic, col + 1, new_board.tobytes(), new_path))
+                new_heuristic = -non_attacking_pairs(new_board)
+                open_set.put((new_heuristic, col + 1, new_board.tobytes(), new_path))
 
     end_time = time.time()
     peak_memory_kb = tracemalloc.get_traced_memory()[1] / 1024
